@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"io/fs"
 	"path/filepath"
 )
 
@@ -15,10 +16,33 @@ type SurveyFile struct {
 	file        string
 }
 
+type Symlink struct {
+	path string
+	info os.FileInfo
+}
+
+func readSymlink(path string) (Symlink, error) {
+	s := Symlink{path: "", info: nil}
+	
+	p, e := filepath.EvalSymlinks(path)
+	if(e != nil) {
+		fmt.Printf("Error reading %s : %s", path, e)
+		return s, e
+	}
+	i, e := os.Stat(p)
+	if(e != nil) {
+		fmt.Printf("Error reading %s : %s", path, e)
+		return s, e
+	}
+	s.path = p
+	s.info = i
+	return s, nil
+}
+
 func readDirectory(root string) (map[string]SurveyFile, error) {
 	surveys := make(map[string]SurveyFile, 10)
-
 	basePath := filepath.Clean(root)
+
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			log.Println(err)
@@ -30,6 +54,27 @@ func readDirectory(root string) (map[string]SurveyFile, error) {
 		}
 
 		name := info.Name()
+		
+		if(info.Mode() & fs.ModeSymlink != 0) {
+			i, e := readSymlink(path)
+			if(e != nil) {
+				return nil // Skip entry
+			}
+			if(i.info.IsDir()) {
+				ss, e := readDirectory(i.path)
+				if(e != nil) {
+					fmt.Printf("Error reading %s : %s", path, e)
+				}
+				prefix := name + "/"
+				for n, s := range ss {
+					s.Id = prefix + s.Id
+					s.Description = prefix + s.Description
+					surveys[ prefix + n ] = s
+				}
+			}
+			return nil // Stop here (dont handle symlink file)
+		}
+
 		include := filepath.Ext(name) == ".json"
 
 		if !include {
