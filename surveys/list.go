@@ -2,17 +2,19 @@ package surveys
 
 import (
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
-	"io/fs"
 	"path/filepath"
+	"time"
 )
 
 // SurveyFile contains info about an available survey
 type SurveyFile struct {
-	Id          string `json:"id"`
-	Label       string `json:"label"`
-	Description string `json:"description"`
+	Id          string            `json:"id"`
+	Label       string            `json:"label"`
+	Description map[string]string `json:"description"`
+	Time        time.Time         `json:"time"`
 	file        string
 }
 
@@ -23,20 +25,32 @@ type Symlink struct {
 
 func readSymlink(path string) (Symlink, error) {
 	s := Symlink{path: "", info: nil}
-	
+
 	p, e := filepath.EvalSymlinks(path)
-	if(e != nil) {
+	if e != nil {
 		fmt.Printf("Error reading %s : %s", path, e)
 		return s, e
 	}
 	i, e := os.Stat(p)
-	if(e != nil) {
+	if e != nil {
 		fmt.Printf("Error reading %s : %s", path, e)
 		return s, e
 	}
 	s.path = p
 	s.info = i
 	return s, nil
+}
+
+func detectSurvey(file string) (SurveyFile, bool) {
+	survey := SurveyFile{file: file}
+	def, err := LoadSurvey(file)
+	if err != nil {
+		fmt.Printf("Not a survey %s : %s\n", file, err)
+		return survey, false
+	}
+	survey.Label = def.Survey.Current.SurveyDefinition.Key
+	survey.Description = LocalisedToMap(def.Survey.Props.Name)
+	return survey, true
 }
 
 func readDirectory(root string) (map[string]SurveyFile, error) {
@@ -54,22 +68,21 @@ func readDirectory(root string) (map[string]SurveyFile, error) {
 		}
 
 		name := info.Name()
-		
-		if(info.Mode() & fs.ModeSymlink != 0) {
+
+		if info.Mode()&fs.ModeSymlink != 0 {
 			i, e := readSymlink(path)
-			if(e != nil) {
+			if e != nil {
 				return nil // Skip entry
 			}
-			if(i.info.IsDir()) {
+			if i.info.IsDir() {
 				ss, e := readDirectory(i.path)
-				if(e != nil) {
+				if e != nil {
 					fmt.Printf("Error reading %s : %s", path, e)
 				}
 				prefix := name + "/"
 				for n, s := range ss {
 					s.Id = prefix + s.Id
-					s.Description = prefix + s.Description
-					surveys[ prefix + n ] = s
+					surveys[prefix+n] = s
 				}
 			}
 			return nil // Stop here (dont handle symlink file)
@@ -81,15 +94,15 @@ func readDirectory(root string) (map[string]SurveyFile, error) {
 			return nil
 		}
 
-		rel, _ := filepath.Rel(basePath, path)
-
-		survey := SurveyFile{
-			Id:          rel,
-			Label:       name,
-			Description: rel,
-			file:        path,
+		survey, ok := detectSurvey(path)
+		if !ok {
+			return nil
 		}
 
+		rel, _ := filepath.Rel(basePath, path)
+
+		survey.Id = rel
+		survey.Time = info.ModTime()
 		surveys[rel] = survey
 		fmt.Printf("Added name: %s (%s)\n", path, rel)
 		return nil
