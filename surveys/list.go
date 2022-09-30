@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 )
 
@@ -16,6 +17,7 @@ type SurveyFile struct {
 	Description map[string]string `json:"description"`
 	Time        time.Time         `json:"time"`
 	file        string
+	Study       string `json:"study"`
 }
 
 type Symlink struct {
@@ -48,6 +50,7 @@ func detectSurvey(file string) (SurveyFile, bool) {
 		fmt.Printf("Not a survey %s : %s\n", file, err)
 		return survey, false
 	}
+	survey.Study = def.StudyKey
 	survey.Label = def.Survey.Current.SurveyDefinition.Key
 	survey.Description = LocalisedToMap(def.Survey.Props.Name)
 	return survey, true
@@ -119,8 +122,17 @@ type SurveyList struct {
 
 // GetList returns the list of available surveys as an array
 func (l *SurveyList) GetList() []SurveyFile {
-	ss := make([]SurveyFile, 0, len(l.surveys))
-	for _, survey := range l.surveys {
+	n := len(l.surveys)
+	ss := make([]SurveyFile, 0, n)
+
+	keys := make([]string, 0, n)
+	for k := range l.surveys {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		survey := l.surveys[key]
 		ss = append(ss, survey)
 	}
 	return ss
