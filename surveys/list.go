@@ -50,9 +50,11 @@ func detectSurvey(file string) (SurveyFile, bool) {
 		fmt.Printf("Not a survey %s : %s\n", file, err)
 		return survey, false
 	}
-	survey.Study = def.StudyKey
-	survey.Label = def.Survey.Current.SurveyDefinition.Key
-	survey.Description = LocalisedToMap(def.Survey.Props.Name)
+	// Default
+	study := filepath.Base(filepath.Dir(filepath.Dir(file)))
+	survey.Study = study
+	survey.Label = def.SurveyDefinition.Key
+	survey.Description = LocalisedToMap(def.Props.Name)
 	return survey, true
 }
 

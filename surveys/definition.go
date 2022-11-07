@@ -4,21 +4,19 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"strings"
+	"errors"
 )
 
+var errorInvalidFormat = errors.New("Invalid survey format")
+
 type SurveyJSON struct {
-	StudyKey string `json:"studyKey"`
-	Survey   struct {
-		Props struct {
-			Name        []LocalisedObject `json:"name"`
-			Description []LocalisedObject `json:"description"`
-		} `json:"props"`
-		Current struct {
-			SurveyDefinition struct {
-				Key string `json:"key"`
-			} `json:"surveyDefinition"`
-		} `json:"current"`
-	} `json:"survey"`
+	Props struct {
+		Name        []LocalisedObject `json:"name"`
+		Description []LocalisedObject `json:"description"`
+	} `json:"props"`
+	SurveyDefinition struct {
+		Key string `json:"key"`
+	} `json:"surveyDefinition"`
 }
 
 type LocalisedObject struct {
@@ -41,6 +39,9 @@ func LoadSurvey(file string) (*SurveyJSON, error) {
 	if err != nil {
 		//fmt.Println("error:", err)
 		return nil, err
+	}
+	if(p.SurveyDefinition.Key == "") {
+		return nil, errorInvalidFormat
 	}
 	return &p, nil
 }
