@@ -17,6 +17,7 @@ type SurveyJSON struct {
 	SurveyDefinition struct {
 		Key string `json:"key"`
 	} `json:"surveyDefinition"`
+	Metadata map[string]string `json:"metadata",omitempty`
 }
 
 type LocalisedObject struct {

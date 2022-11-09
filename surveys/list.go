@@ -18,6 +18,7 @@ type SurveyFile struct {
 	Time        time.Time         `json:"time"`
 	file        string
 	Study       string `json:"study"`
+	Metadata    map[string]string `json:"metadata",omitempty`
 }
 
 type Symlink struct {
@@ -55,6 +56,9 @@ func detectSurvey(file string) (SurveyFile, bool) {
 	survey.Study = study
 	survey.Label = def.SurveyDefinition.Key
 	survey.Description = LocalisedToMap(def.Props.Name)
+	if(len(def.Metadata) > 0) {
+		survey.Metadata = def.Metadata
+	}
 	return survey, true
 }
 
